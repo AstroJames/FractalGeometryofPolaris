@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from skimage import measure, filters, morphology   # for drawing contours and Gaussian filters
 from matplotlib import rc                          # nicer text in matplotlib
 from skimage.morphology import convex_hull_image
+from matplotlib.gridspec import GridSpec
 
 ###########################################################################
 
@@ -29,32 +30,39 @@ dataWrite   = "./PolarisProcessing"
 # Function Definitions
 ###########################################################################
 
-def FITSreader(file,dataAddress):
+def ColDensityFITSextract(file,dataAddress):
     """
-    This reads in FITS files and immediatly extracts the data from themself.
+    This reads in FITS files and immediatly extracts the column density data from themself.
 
     INPUTS:
     file            - the file name
     dataAddress     - the address of the file
     """
 
+    # Read in the FITS files and extract column density.
     data    = fits.open(dataAddress+file)
-    data    = data[0].data
+    data    = data[0].data[0,0,:,:]
 
-    return data
+    # Check if the data is actually just the column denisty
+    if data.ndim != 2:
+        print("WARNING: The dimensions of the FITS read is not 2.")
+
+    # The first two moments
+    mean    = data.mean()
+    var     = data.var()
+
+    return data, mean, var
 
 
-def MaxPixelWindow(image):
+def MaxPixelWindow(image,windowSize,windowTop,windowBottom):
     max_pix_x   = []
     max_pix_y   = []
     start       = 0
     dy          = 5;
     top         = image.shape[0]/dy
-    BrickTop    = 70
-    BrickBottom = 580
 
     for end in xrange(1,top):
-        if dy*end > BrickTop and dy*end < BrickBottom:
+        if dy*end > windowTop and dy*end < windowBottom:
             y,x = np.where(image[start:dy*end,:] == image[start:dy*end,:].max())
             max_pix_y.append(y+start)
             max_pix_x.append(x)
@@ -64,6 +72,26 @@ def MaxPixelWindow(image):
             continue
 
     return np.array([max_pix_x, max_pix_y])
+
+
+def PlottingFunc(ax,data,label,fs):
+    ax.imshow( np.log10( data ), cmap=plt.cm.plasma,vmin=20.5,vmax=21.5)
+    ax.annotate(r'{}'.format(label),xy=(50-3, 150-3),fontsize=fs,color='black',xycoords='data')
+    ax.annotate(r'{}'.format(label),xy=(50, 150),fontsize=fs,color='white',xycoords='data')
+    #ax[0].plot(scale_bar[0],scale_bar[1],color='black',linewidth=2)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    Ymax, Xmax = np.where(data == data.max())
+
+    # Black shadow
+    ax.scatter(Xmax[0]-3, Ymax[0]-3, marker ='o', color='black',s=2)
+    ax.annotate(r'$\Sigma_{max}$',xy=(Xmax[0] - 23, Ymax[0] - 23),fontsize=fs,
+                color='black',xycoords='data')
+    # White
+    ax.scatter(Xmax[0], Ymax[0], marker='o', color='white',s=2)
+    ax.annotate(r'$\Sigma_{max}$',xy=(Xmax[0] - 20, Ymax[0] - 20),fontsize=fs,
+                color='white',xycoords='data')
 
 # Coordinates
 ###########################################################################
@@ -125,9 +153,9 @@ def MaxPixelWindow(image):
 # Working Script
 ###########################################################################
 
-Pol_qui     = FITSreader(,dataAdd)
-Pol_sax     = FITSreader(,dataAdd)
-
+Pol_qui, mean_qui, var_qui     = ColDensityFITSextract("herschel_polaris_coldens_18_quiet.fits",dataAdd)
+Pol_sax, mean_sax, var_sax     = ColDensityFITSextract("herschel_polaris_coldens_18_saxophone.fits",dataAdd)
+Pol_ful, mean_ful, var_ful     = ColDensityFITSextract("herschel_polaris_coldens_36.fits",dataAdd)
 
 
 # Plots
@@ -137,21 +165,24 @@ Pol_sax     = FITSreader(,dataAdd)
 # dx          = 10
 # dy          = 600
 # scale_bar   = np.array([[dx,dx+pix_1pc],[dy,dy]])
-# fs          = 18
 
-# fig, ax = plt.subplots()
-# for contour in countours_cf:
-#     ax.plot(contour[:, 1], contour[:, 0], linewidth=2, color='black')
-# for contour in countours_JB:
-#     plt.plot(contour[:, 1], contour[:, 0], linewidth=2, color='black')
-# plt.plot(max_pix[0],max_pix[1],'ko',linewidth=2)
-# plt.imshow( np.log10( Brickcf_image*(Brickcf_image >= outline1) ), vmin=22.5,vmax=23.5, cmap=plt.cm.seismic)
-# plt.annotate(r'ALMA + $Herschel$',xy=(10, 50),fontsize=fs,color='black')
-# plt.annotate(r'G0.253+0.016',xy=(10, 65),fontsize=fs,color='black')
-# plt.annotate(r'1pc',xy=(45, 595),fontsize=fs-2,color='black')
-# plt.plot(scale_bar[0],scale_bar[1],color='black',linewidth=2)
-# ax.set_xticks([])
-# ax.set_yticks([])
-# cbar = plt.colorbar()
-# cbar.set_label(r"$\log_{10} \Sigma$ [cm$^{-2}$]",fontsize=fs)
-# plt.show()
+f, ax = plt.subplots(1,2, figsize=(9, 3), dpi=250, facecolor='w')
+f.subplots_adjust(hspace=0.01)
+fs = 12;
+
+PlottingFunc(ax[0],Pol_sax,'Saxophone Region',fs)
+PlottingFunc(ax[1],Pol_qui,'Quiet Region',fs)
+
+
+
+
+
+#cbar1 = f.colorbar(Pol_sax,ax = ax[0],pad=0.01)
+#cbar1.set_label(r"$\log_{10} \Sigma$ [cm$^{-2}$]",fontsize=fs)
+
+#cbar2 = f.colorbar(Pol_qui,ax = ax[1],pad=0.01)
+#cbar2.set_label(r"$\log_{10} \Sigma$ [cm$^{-2}$]",fontsize=fs)
+plt.tight_layout()
+
+
+plt.show()

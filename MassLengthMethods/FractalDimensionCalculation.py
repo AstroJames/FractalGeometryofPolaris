@@ -23,11 +23,26 @@ imp.reload(FractalDimensionUtilities)
 # 5 June, 2018: May have found a bug in the boundary conditions.
 # 6 January, 2019: editting for application on the Brick
 
+# Example Command line:
+""" run FractalDimensionCalculation -lmin 3 -boundaries 'Terminating' -FITSfile 'FITS.fits' """
+
 ##############################################################################################################################
 # Any functions for processing: brick.dust_column_density_cf.fits
 ##############################################################################################################################
 
-def MaxPixelWindow(image,windowsize,method):
+def MaxPixelWindow(image,windowsize,method,windowBottom,windowTop):
+    """
+    This function is used to get all of the maximum values of the column density,
+    either in a vertically sliding window, or a single, global maximum
+
+
+    INPUTS:
+    image           - the 2D column density data.
+    windowsize      - the sie of the window in pixels.
+    method          - the method, either: "SlidingWindow" or "MaxPixel".
+    windowBottom    - the bottom boundary of the sliding window.
+    windowTop       - the top boundary of the sliding window.
+    """
 
     # Error Handling
     method_options = ["SlidingWindow", "MaxPixel"]
@@ -40,14 +55,16 @@ def MaxPixelWindow(image,windowsize,method):
     max_pix_y   = []                            # max pixel coordinates for y
     start       = 0                             # bottom y coordinate for the sliding window
     top         = image.shape[0]/windowsize     # top y coordinate for the sliding window
-    BrickTop    = 70                            # start at y=70 pixel on the brick (avoid the blank space)
-    BrickBottom = 620                           # start at y=70 pixel on the brick (avoid the blank space)
+
+    # These are the coordinates for the brick
+    #windowTop    = 70
+    #windowBottom = 620
 
     # Sliding window method
     if method == "SlidingWindow":
         # Slide the window down the brick image, searching for the maximum pixel in each window
         for end in xrange(1,top):
-            if windowsize*end > BrickTop and windowsize*end < BrickBottom:
+            if windowsize*end > windowTop and windowsize*end < windowBottom:
                 y,x = np.where(image[start:windowsize*end,:] == image[start:windowsize*end,:].max())
                 max_pix_y.append(y+start)
                 max_pix_x.append(x)
@@ -56,13 +73,11 @@ def MaxPixelWindow(image,windowsize,method):
                 start += windowsize
                 continue
 
-    # Max pixel method
+    # Single Max pixel method
     elif method == "MaxPixel":
-        y, x = np.where(image[BrickTop:BrickBottom,:] == image[BrickTop:BrickBottom,:].max())
-        max_pix_y.append(y+start)
-        max_pix_x.append(x)
-
-
+        y, x = np.where(image[windowTop:windowBottom,:] == image[windowTop:windowBottom,:].max())
+        max_pix_y.append(y[0]+start)
+        max_pix_x.append(x[0])
 
     return max_pix_x, max_pix_y
 
@@ -71,7 +86,28 @@ def FITSRead(filename,RBthreshold,CFthreshold):
     image           = np.flipud(image[0].data)        # Federrath 2016 preprocessed
     RB_mask         = image >= RBthreshold            # sensitivity treshold in JR2014
     CF_sigma        = image*(image >= CFthreshold)    # indexes of the contour in CF2016
+
     return CF_sigma, RB_mask
+
+def ColDensityFITSextract(file):
+    """
+    This reads in FITS files and immediatly extracts the column density data from themself.
+
+    INPUTS:
+    file            - the file name
+    """
+
+    dataAddress = "../FITSfiles/"
+
+    # Read in the FITS files and extract column density.
+    data    = fits.open(dataAddress+file)
+    data    = data[0].data[0,0,:,:]
+
+    # Check if the data is actually just the column denisty
+    if data.ndim != 2:
+        print("WARNING: The dimensions of the FITS read is not 2.")
+
+    return data
 
 ##############################################################################################################################
 # Command Line Arguments
@@ -124,33 +160,33 @@ Region_label        = []                    # label the region that terminates
 JRthreshold         = 2.0*(25e-3*1.9e23)    # see Ratheborne et al. (2014, page 2, 3 left column)
 CFthreshold         = 5e22                  # cm^{-2} # CF2016, contour
 
-image, mask = FITSRead(args['FITSfile'],JRthreshold,CFthreshold)
+image       = ColDensityFITSextract(args['FITSfile'])
 lmax        = image.shape[1];   # the maximum size of the squares for the counting method
 
 #############################
 # Calculate Centroids
 #############################
 
-centroid_x, centroid_y = MaxPixelWindow(image,150,"SlidingWindow")
+centroid_x, centroid_y = MaxPixelWindow(image,150,"MaxPixel",image.shape[1],0)
 
 #############################
 # Initialise Figure
 #############################
 
-pix_pc      = 0.01408382    # pixels per parsec
-pix_1pc     = 1/pix_pc   # 1 parsec in pixels
-dx          = 10
-dy          = 600
-scale_bar   = np.array([[dx,dx+pix_1pc],[dy,dy]])
+#pix_pc      = 0.01408382    # pixels per parsec
+#pix_1pc     = 1/pix_pc   # 1 parsec in pixels
+#dx          = 10
+#dy          = 600
+#scale_bar   = np.array([[dx,dx+pix_1pc],[dy,dy]])
 fs          = 18
 
 fig, ax = plt.subplots()
 plt.plot(centroid_x,centroid_y,'ko',linewidth=2)
-plt.imshow( np.log10( image*(image >= CFthreshold) ), vmin=22.5,vmax=23.5, cmap=plt.cm.seismic)
-plt.annotate(r'ALMA + $Herschel$',xy=(10, 50),fontsize=fs,color='black')
-plt.annotate(r'G0.253+0.016',xy=(10, 65),fontsize=fs,color='black')
-plt.annotate(r'1pc',xy=(45, 595),fontsize=fs-2,color='black')
-plt.plot(scale_bar[0],scale_bar[1],color='black',linewidth=2)
+plt.imshow( np.log10( image ), vmin=22.5,vmax=23.5, cmap=plt.cm.seismic)
+#plt.annotate(r'ALMA + $Herschel$',xy=(10, 50),fontsize=fs,color='black')
+#plt.annotate(r'G0.253+0.016',xy=(10, 65),fontsize=fs,color='black')
+#plt.annotate(r'1pc',xy=(45, 595),fontsize=fs-2,color='black')
+#plt.plot(scale_bar[0],scale_bar[1],color='black',linewidth=2)
 ax.set_xticks([])
 ax.set_yticks([])
 cbar = plt.colorbar()
@@ -186,7 +222,8 @@ while dxdy < lmax and Box_state is True:
                 continue
 
             #if the entire region is outside of the mask or if the expansion goes past the dimensions
-            if (np.all(mask[y:y+dxdy,x:x+dxdy].ravel()) == False) or y < 0 or x < 0 or y > mask.shape[1] or x > mask.shape[0]:
+
+            if y < 0 or x < 0 or y > image.shape[1] or x > image.shape[0]:
                 # move onto the next box if anything fails
                 terminator_count += 1   # store the termination
                 Region_label.append(i)  # store the box label
@@ -384,14 +421,14 @@ while dxdy < lmax and Box_state is True:
     # Store the amount of boxes and the size of the boxes
 
     log_mass_arr.append(np.log10(Mass_mean));
-    log_dxdy_arr.append(np.log10(dxdy*pix_pc)); # in units parsecs
+    log_dxdy_arr.append(np.log10(dxdy)); # in units parsecs
 
 
     # After the first iteration calculate the linear regression and fractal dimension
     if iter_count >= 1:
         #print('Starting regression on iteration {}'.format(iter_count))
 
-        dxdy_arr.append(dxdy*pix_pc); # in units parsecs
+        dxdy_arr.append(dxdy); # in units parsecs
         mass_arr.append(Mass_mean);
         std_arr.append(Mass_std);
         box_count.append(len(Mass_region));
