@@ -104,6 +104,7 @@ dD_errorFunction <- function(l,dt,parms){
      return(dsigma)
 }
 
+
 FittingBuilderSonic<-function(data,lower,upper){
      sonicscale_up       <- 10^(-1.87 + 0.11)*10048
      sonicscale_down     <- 10^(-1.87 - 0.11)*10048
@@ -756,7 +757,6 @@ ggplot(aes(x=LR,y=FD),data=M) +
            strip.text.x = element_text(size = 15,face="bold")) + 
      theme(legend.position = 0) 
 
-
 # Figure 3 part 1
 ggplot(aes(x=LR,y=FD),data=ModelDatFit) +
      geom_point(aes(col=`Mach Number`)) +
@@ -807,14 +807,62 @@ ggplot(aes(x=log10(Mach),y=FD),data=ModelDatFit_Mach) +
            legend.background = element_rect(fill = "white"), 
            legend.position = c(0.9, 0.90)) 
 
-ggplot(aes(x=log10(Mach),y=FD),data=ModelDatFit_Mach) +
-     coord_flip() +
-     geom_line(aes(x=Mach,y=FD),data=InverseModel,size=1.1) +
-     geom_line(aes(x=Mach,y=FD),data=InverseLow,size=0.5,linetype=2) +
-     geom_line(aes(x=Mach,y=FD),data=InverseHigh,size=0.5,linetype=2) +
+
+
+# Polaris Results
+##########################################################################################################
+
+# Quiet region
+quiet          <- 1.76
+quietUpper     <- 1.81
+quietLower     <- 1.71
+
+# Saxophone region
+sax       <- 1.60
+saxUpper  <- 1.64
+saxLower  <- 1.56
+
+# Quiet Mach and Fractal dimension data     
+i_quiet   <- which(round(InverseModel$FD,2)==quiet) %>% median() %>% round()
+i_quietU  <- which(round(InverseModel$FD,2)==quietUpper)  %>% median() %>% round()
+i_quietL  <- which(round(InverseModel$FD,2)==quietLower)  %>% median() %>% round()
+quiet_dat <- rbind(InverseModel[i_quiet,])
+quiet_dat$`Polaris Sub-region` <- "Quiet"
+
+errQuiet <- filter(InverseModel,FD <= quietUpper, FD >= quietLower)
+quiet_dat %>% mutate(Mach10 = 10^Mach)
+
+# Saxophone Mach and Fractal dimension data  
+i_sax     <- which(round(InverseModel$FD,2)==sax) %>% median() %>% round()
+i_saxU    <- which(round(InverseModel$FD,2)==saxUpper)  %>% median() %>% round()
+i_saxL    <- which(round(InverseModel$FD,2)==saxLower)  %>% median() %>% round()
+sax_dat <- rbind(InverseModel[i_sax,])
+sax_dat$`Polaris Sub-region` <- "Saxophone"
+
+Estimates <- rbind(quiet_dat,sax_dat)
+
+errSax <- filter(InverseModel,FD <= saxUpper, FD >= saxLower)
+sax_dat %>% mutate(Mach10 = 10^Mach)
+
+dat<-data.frame(FD=c(1.55,2))
+
+ggplot() +
+     #geom_ribbon(aes(x=FD,ymin=log10(7-7*0.4),ymax=log10(7+7*0.4)),data=dat,fill = "red",alpha=0.2) +
+     #geom_ribbon(aes(x=FD,ymin=log10(3-3*0.4),ymax=log10(3+3*0.4)),data=dat,fill = "purple",alpha=0.2) +
+     geom_hline(yintercept = log10(7-7*0.3),col='red',linetype=3,size=0.8) +
+     geom_hline(yintercept = log10(7+7*0.3),col='red',linetype=3,size=0.8) +
+     geom_hline(yintercept = log10(3+3*0.3),col='red',linetype=3,size=0.8) +
+     geom_hline(yintercept = log10(3-3*0.3),col='red',linetype=3,size=0.8) +
+     geom_line(aes(y=Mach,x=FD),data=InverseModel,size=1.1) +
+     #geom_line(aes(x=Mach,y=FD),data=InverseLow,size=0.5,linetype=2) +
+     #geom_line(aes(x=Mach,y=FD),data=InverseHigh,size=0.5,linetype=2) +
+     geom_line(aes(y=Mach,x=FD),data=errSax,size=8,col="blue",alpha=0.2) +
+     geom_line(aes(y=Mach,x=FD),data=errQuiet,size=8,col="blue",alpha=0.2) +
+     geom_point(aes(y=Mach,x=FD,shape=`Polaris Sub-region`),data=Estimates,size=4,col='red') +
+     #geom_ribbon(aes(x=FD,ymin=log10(3-3*0.4),ymax=log10(3+3*0.4)),data=data.frame(FD=c(0,3)),fill = "red",alpha=0.1) +
      theme_bw() +
-     scale_x_continuous(breaks = seq(-1.5, 2, by = 0.5),labels=ExponentLabel,limit=c(-1.5,2)) +
-     scale_y_continuous(breaks = round(seq(1.4,2, by = 0.1),1)) + 
+     scale_y_continuous(breaks = seq(-1.5, 2, by = 0.5),labels=ExponentLabel,limit=c(-1.5,2)) +
+     scale_x_continuous(breaks = round(seq(1.5,2, by = 0.1),1),limits=c(1.55,2)) + 
      theme(axis.text.x = element_text(size = 15), 
            axis.text.y = element_text(size = 15), 
            plot.title = element_text(size = 15),
@@ -825,4 +873,5 @@ ggplot(aes(x=log10(Mach),y=FD),data=ModelDatFit_Mach) +
      theme(legend.text = element_text(size = 16), 
            legend.title = element_text(size = 16,face = "bold"),
            legend.background = element_rect(fill = "white"), 
-           legend.position = c(0.9, 0.90)) 
+           legend.position = c(0.82, 0.90)) 
+
