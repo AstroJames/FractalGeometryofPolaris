@@ -1,3 +1,10 @@
+"""
+Title:      Mass-Length Fractal Dimension Curve Constructor
+Author:     James Beattie
+Comments:   Implementation of Beattie et al. 2019 on Polaris FITS data.
+
+"""
+
 ##############################################################################################################################
 # Dependencies
 ##############################################################################################################################
