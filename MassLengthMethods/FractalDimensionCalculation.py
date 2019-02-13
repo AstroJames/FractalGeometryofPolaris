@@ -10,6 +10,7 @@ import sys
 from astropy.io import fits
 import matplotlib.patches as patches
 from matplotlib import pyplot as plt
+from matplotlib import rc
 import FractalDimensionUtilities
 from FractalDimensionUtilities import *         # FractalDimensionUtilities module written by me, for me.
 imp.reload(FractalDimensionUtilities)
@@ -66,8 +67,8 @@ def MaxPixelWindow(image,windowsize,method,windowBottom,windowTop):
         for end in xrange(1,top):
             if windowsize*end > windowTop and windowsize*end < windowBottom:
                 y,x = np.where(image[start:windowsize*end,:] == image[start:windowsize*end,:].max())
-                max_pix_y.append(y+start)
-                max_pix_x.append(x)
+                max_pix_y.append(y[0]+start)
+                max_pix_x.append(x[0])
                 start += windowsize
             else:
                 start += windowsize
@@ -167,22 +168,25 @@ lmax        = image.shape[1];   # the maximum size of the squares for the counti
 # Calculate Centroids
 #############################
 
-centroid_x, centroid_y = MaxPixelWindow(image,150,"MaxPixel",image.shape[1],0)
+centroid_x, centroid_y = MaxPixelWindow(image,50,"MaxPixel",image.shape[1],0)
 
 #############################
 # Initialise Figure
 #############################
+
+rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
+rc('text', usetex=True)
 
 #pix_pc      = 0.01408382    # pixels per parsec
 #pix_1pc     = 1/pix_pc   # 1 parsec in pixels
 #dx          = 10
 #dy          = 600
 #scale_bar   = np.array([[dx,dx+pix_1pc],[dy,dy]])
-fs          = 18
+fs          = 20
 
 fig, ax = plt.subplots()
-plt.plot(centroid_x,centroid_y,'ko',linewidth=2)
-plt.imshow( np.log10( image ), vmin=22.5,vmax=23.5, cmap=plt.cm.seismic)
+plt.scatter(centroid_x,centroid_y,marker='o',color='white')
+plt.imshow( np.log10( image ),cmap=plt.cm.plasma,vmax=22,vmin=20.5)
 #plt.annotate(r'ALMA + $Herschel$',xy=(10, 50),fontsize=fs,color='black')
 #plt.annotate(r'G0.253+0.016',xy=(10, 65),fontsize=fs,color='black')
 #plt.annotate(r'1pc',xy=(45, 595),fontsize=fs-2,color='black')
@@ -190,7 +194,7 @@ plt.imshow( np.log10( image ), vmin=22.5,vmax=23.5, cmap=plt.cm.seismic)
 ax.set_xticks([])
 ax.set_yticks([])
 cbar = plt.colorbar()
-cbar.set_label(r"$\log_{10} \Sigma$ [cm$^{-2}$]",fontsize=fs)
+cbar.set_label(r"$\log_{10} \Sigma$ [cm$^{-2}$]",fontsize=fs,labelpad=20)
 
 #############################
 # Region Expansion
@@ -223,18 +227,17 @@ while dxdy < lmax and Box_state is True:
 
             #if the entire region is outside of the mask or if the expansion goes past the dimensions
 
-            if y < 0 or x < 0 or y > image.shape[1] or x > image.shape[0]:
+            if y < 0 or x < 0 or y > image.shape[0] or x > image.shape[1] or x + dxdy > image.shape[1]  or y + dxdy > image.shape[0]:
                 # move onto the next box if anything fails
                 terminator_count += 1   # store the termination
                 Region_label.append(i)  # store the box label
 
                 # Calculate old x and y
-
-                x_old       = int(centroid_x[i] - ((dxdy-3)/2 + 1))
-                y_old       = int(centroid_y[i] - ((dxdy-3)/2 + 1))
                 dxdy_old    = dxdy - 2
+                x_old       = int(centroid_x[i] - ((dxdy_old-1)/2 + 1))
+                y_old       = int(centroid_y[i] - ((dxdy_old-1)/2 + 1))
 
-                rect        = patches.Rectangle((x_old,y_old),dxdy_old,dxdy_old,linewidth=1,edgecolor='purple',facecolor='r',alpha=0.2);
+                rect        = patches.Rectangle((x_old,y_old),dxdy_old,dxdy_old,linewidth=1,edgecolor='white',fill=False);
                 ax.add_patch(rect);
                 continue
             else:
@@ -243,6 +246,11 @@ while dxdy < lmax and Box_state is True:
                 Box_state_count += 1
                 box_counter += 1;
                 Mass_region.append(Mass_sum);
+
+
+                if np.mod(dxdy,100) == 1:
+                    rect        = patches.Rectangle((x,y),dxdy,dxdy,linewidth=1,edgecolor='white',fill=False);
+                    ax.add_patch(rect);
 
                 #if dxdy == 225:
                 #    rect        = patches.Rectangle((x,y),dxdy,dxdy,linewidth=1,edgecolor='r',facecolor='r',alpha=0.1);
@@ -444,7 +452,6 @@ while dxdy < lmax and Box_state is True:
         # Store the fractal dimension
         fractal_dim.append(slope);
 
-    terminator_count    = 0     # reset terminator counter
     iter_count          += 1    # add one to the iteration counter
     dxdy                += 2    # sample uniformly.
 
@@ -452,8 +459,11 @@ while dxdy < lmax and Box_state is True:
     if np.mod(dxdy,2) == 0:
         dxdy += 1
 
-plt.plot(np.log10(dxdy_arr/max( np.array(dxdy_arr) )),fractal_dim)
-plt.axhline(min(fractal_dim),color='red')
+maxdxdy = np.double(max( np.array(dxdy_arr) ))
+
+plt.show()
+plt.plot(np.log10(dxdy_arr/maxdxdy ),fractal_dim)
+#plt.axhline(min(fractal_dim),color='red')
 plt.xlabel(r"$\log_{10}\left(\ell/\ell_{max}\right)$",fontsize=16)
 plt.ylabel(r"$\mathcal{D}(\ell/\ell_{max})$",fontsize=16)
 plt.show()
