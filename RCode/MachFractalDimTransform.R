@@ -827,7 +827,7 @@ i_quiet   <- which(round(InverseModel$FD,2)==quiet) %>% median() %>% round()
 i_quietU  <- which(round(InverseModel$FD,2)==quietUpper)  %>% median() %>% round()
 i_quietL  <- which(round(InverseModel$FD,2)==quietLower)  %>% median() %>% round()
 quiet_dat <- rbind(InverseModel[i_quiet,])
-quiet_dat$`Polaris Sub-region` <- "Quiet"
+quiet_dat$`Polaris Subregion` <- "Quiet"
 
 errQuiet <- filter(InverseModel,FD <= quietUpper, FD >= quietLower)
 quiet_dat %>% mutate(Mach10 = 10^Mach)
@@ -837,7 +837,7 @@ i_sax     <- which(round(InverseModel$FD,2)==sax) %>% median() %>% round()
 i_saxU    <- which(round(InverseModel$FD,2)==saxUpper)  %>% median() %>% round()
 i_saxL    <- which(round(InverseModel$FD,2)==saxLower)  %>% median() %>% round()
 sax_dat <- rbind(InverseModel[i_sax,])
-sax_dat$`Polaris Sub-region` <- "Saxophone"
+sax_dat$`Polaris Subregion` <- "Saxophone"
 
 Estimates <- rbind(quiet_dat,sax_dat)
 
@@ -849,17 +849,17 @@ dat<-data.frame(FD=c(1.55,2))
 ggplot() +
      #geom_ribbon(aes(x=FD,ymin=log10(7-7*0.4),ymax=log10(7+7*0.4)),data=dat,fill = "red",alpha=0.2) +
      #geom_ribbon(aes(x=FD,ymin=log10(3-3*0.4),ymax=log10(3+3*0.4)),data=dat,fill = "purple",alpha=0.2) +
-     geom_hline(yintercept = log10(7-7*0.3),col='red',linetype=3,size=0.8) +
-     geom_hline(yintercept = log10(7+7*0.3),col='red',linetype=3,size=0.8) +
-     geom_hline(yintercept = log10(3+3*0.3),col='red',linetype=3,size=0.8) +
-     geom_hline(yintercept = log10(3-3*0.3),col='red',linetype=3,size=0.8) +
      geom_line(aes(y=Mach,x=FD),data=InverseModel,size=1.1) +
      #geom_line(aes(x=Mach,y=FD),data=InverseLow,size=0.5,linetype=2) +
      #geom_line(aes(x=Mach,y=FD),data=InverseHigh,size=0.5,linetype=2) +
      geom_line(aes(y=Mach,x=FD),data=errSax,size=8,col="blue",alpha=0.2) +
      geom_line(aes(y=Mach,x=FD),data=errQuiet,size=8,col="blue",alpha=0.2) +
-     geom_point(aes(y=Mach,x=FD,shape=`Polaris Sub-region`),data=Estimates,size=4,col='red') +
+     geom_point(aes(y=Mach,x=FD,shape=`Polaris Subregion`),data=Estimates,size=4,col='red') +
      #geom_ribbon(aes(x=FD,ymin=log10(3-3*0.4),ymax=log10(3+3*0.4)),data=data.frame(FD=c(0,3)),fill = "red",alpha=0.1) +
+     geom_hline(yintercept = log10(7-7*0.3),col='blue',linetype=2,size=0.5) +
+     geom_hline(yintercept = log10(7+7*0.3),col='blue',linetype=2,size=0.5) +
+     geom_hline(yintercept = log10(3+3*0.3),col='blue',linetype=2,size=0.5) +
+     geom_hline(yintercept = log10(3-3*0.3),col='blue',linetype=2,size=0.5) +
      theme_bw() +
      scale_y_continuous(breaks = seq(-1.5, 2, by = 0.5),labels=ExponentLabel,limit=c(-1.5,2)) +
      scale_x_continuous(breaks = round(seq(1.5,2, by = 0.1),1),limits=c(1.55,2)) + 
@@ -869,9 +869,9 @@ ggplot() +
            axis.title = element_text(size = 16)) + 
      scale_color_manual(values=c("#2121D9", "#9999FF", "#21D921", "#D92121", "#FF9326", "#CCCC00")) +
      scale_fill_manual(values=c("#2121D9", "#9999FF", "#21D921", "#D92121", "#FF9326", "#CCCC00")) +
-     labs(y = 'Fractal Dimension', x = 'Mach Number') +
+     labs(x = 'Fractal Dimension', y = 'Mach Number') +
      theme(legend.text = element_text(size = 16), 
            legend.title = element_text(size = 16,face = "bold"),
            legend.background = element_rect(fill = "white"), 
-           legend.position = c(0.82, 0.90)) 
+           legend.position = c(0.85, 0.85)) 
 
