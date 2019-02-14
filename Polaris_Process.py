@@ -8,6 +8,7 @@ Creation Date:  12th Feb, 2019
 ###########################################################################
 
 import numpy as np
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 import matplotlib.pyplot as plt
 from skimage import measure, filters, morphology   # for drawing contours and Gaussian filters
@@ -55,6 +56,11 @@ def ColDensityFITSextract(file,dataAddress):
 
 
 def MaxPixelWindow(image,windowSize,windowTop,windowBottom):
+    """
+
+
+    """
+
     max_pix_x   = []
     max_pix_y   = []
     start       = 0
@@ -74,8 +80,12 @@ def MaxPixelWindow(image,windowSize,windowTop,windowBottom):
     return np.array([max_pix_x, max_pix_y])
 
 
-def PlottingFunc(ax,data,label,fs):
-    ax.imshow( np.log10( data ), cmap=plt.cm.plasma,vmin=20.5,vmax=21.5)
+def PlottingFunc(ax,data,label,fs,colorbar=None):
+    """
+
+    """
+
+    img = ax.imshow( np.log10( data ), cmap=plt.cm.plasma,vmin=20.5,vmax=21.5,interpolation='none')
     ax.annotate(r'{}'.format(label),xy=(50-3, 150-3),fontsize=fs,color='black',xycoords='data')
     ax.annotate(r'{}'.format(label),xy=(50, 150),fontsize=fs,color='white',xycoords='data')
     #ax[0].plot(scale_bar[0],scale_bar[1],color='black',linewidth=2)
@@ -85,32 +95,45 @@ def PlottingFunc(ax,data,label,fs):
     Ymax, Xmax = np.where(data == data.max())
 
     # Black shadow
-    ax.scatter(Xmax[0]-3, Ymax[0]-3, marker ='o', color='black',s=2)
-    ax.annotate(r'$\Sigma_{max}$',xy=(Xmax[0] - 23, Ymax[0] - 23),fontsize=fs,
+    ax.scatter(Xmax[0]-3, Ymax[0]-3, marker ='o', color='black',s=3)
+    ax.annotate(r'$\Sigma_{max}$',xy=(Xmax[0] - 23, Ymax[0] - 23),fontsize=fs+2,
                 color='black',xycoords='data')
     # White
-    ax.scatter(Xmax[0], Ymax[0], marker='o', color='white',s=2)
-    ax.annotate(r'$\Sigma_{max}$',xy=(Xmax[0] - 20, Ymax[0] - 20),fontsize=fs,
+    ax.scatter(Xmax[0], Ymax[0], marker='o', color='white',s=3)
+    ax.annotate(r'$\Sigma_{max}$',xy=(Xmax[0] - 20, Ymax[0] - 20),fontsize=fs+2,
                 color='white',xycoords='data')
+
+
+    if colorbar is not None:
+        cbar = plt.colorbar(img, ax=ax,pad=0.01)
+        cbar.set_label(r"$\log_{10} \Sigma$ [cm$^{-2}$]",fontsize=fs,labelpad=20,rotation=270)
+
+
+def CoordFITSExtract(file,dataAddress):
+    """
+
+    """
+    data    = fits.open(dataAddress+file)
+
+    # some info on coordinates:
+    coord_x_pix     = data[0].header["CRPIX1"]
+    coord_y_pix     = data[0].header["CRPIX2"]
+    coord_x_offset  = data[0].header["CRVAL1"]
+    coord_y_offset  = data[0].header["CRVAL2"]
+
+    # compute the size of a pixel
+    pix             = data[0].header["CDELT2"]*3600.0       # in arcsec
+    distance        = 0.15                                  # kpc
+    arcsec2rad      = 206265.0                              # arcseconds to radians
+    pix_pc          = distance * 1000.0 * pix/arcsec2rad    # pixels to parsecs
+    print 'pixel size in parsecs = ', pix_pc
+
+    return (coord_x_pix, coord_y_pix), (coord_x_offset, coord_y_offset), pix_pc
+
 
 # Coordinates
 ###########################################################################
 
-# # some info on coordinates:
-# coord_x_pix     = Brick[0].header["CRPIX1"]
-# coord_y_pix     = Brick[0].header["CRPIX2"]
-# coord_x_offset  = Brick[0].header["CRVAL1"]
-# coord_y_offset  = Brick[0].header["CRVAL2"]
-#
-# # compute the size of a pixel
-# pix = Brick[0].header["CDELT2"]*3600.0                                      # in arcsec
-# print Brick[0].header["CDELT1"]*3600.0, Brick[0].header["CDELT2"]*3600.0    # in arcsec
-# print 'pixel size in arcsec = ', pix
-#
-# distance    = np.array([8.3,8.0,8.6])   # kpc
-# arcsec2rad  = 206265.0                  # arcseconds to radians
-# pix_pc = distance * 1000.0 * pix/arcsec2rad
-# print 'pix_pc = ', pix_pc
 
 
 # Column Density
@@ -153,36 +176,34 @@ def PlottingFunc(ax,data,label,fs):
 # Working Script
 ###########################################################################
 
-Pol_qui, mean_qui, var_qui     = ColDensityFITSextract("herschel_polaris_coldens_18_quiet.fits",dataAdd)
-Pol_sax, mean_sax, var_sax     = ColDensityFITSextract("herschel_polaris_coldens_18_saxophone.fits",dataAdd)
-Pol_ful, mean_ful, var_ful     = ColDensityFITSextract("herschel_polaris_coldens_36.fits",dataAdd)
+Pol_qui, mean_qui, var_qui                  = ColDensityFITSextract("herschel_polaris_coldens_18_quiet.fits",dataAdd)
+coord_pix_qui, coord_offset_qui, pix_pc_qui = CoordFITSExtract("herschel_polaris_coldens_18_quiet.fits",dataAdd)
 
+Pol_sax, mean_sax, var_sax                  = ColDensityFITSextract("herschel_polaris_coldens_18_saxophone.fits",dataAdd)
+coord_pix_sax, coord_offset_sax, pix_pc_sax = CoordFITSExtract("herschel_polaris_coldens_18_saxophone.fits",dataAdd)
 
 # Plots
 ###########################################################################
 
-# pix_1pc     = 1/pix_pc[0]
-# dx          = 10
-# dy          = 600
-# scale_bar   = np.array([[dx,dx+pix_1pc],[dy,dy]])
+pix_1pc     = 1/pix_pc_sax  # the number of pixels required for a parsec
+dx          = 150           # coordinates for the scale bar
+dy          = 1800          # coordinates for the scale bar
+scale_bar   = np.array([[dx,dx+pix_1pc],[dy,dy]])
 
-f, ax = plt.subplots(1,2, figsize=(9, 3), dpi=250, facecolor='w')
-f.subplots_adjust(hspace=0.01)
+f, ax = plt.subplots(1,2, figsize=(4, 4), dpi=250, facecolor='w')
+f.subplots_adjust(hspace=0.01,wspace=0)
 fs = 12;
 
-PlottingFunc(ax[0],Pol_sax,'Saxophone Region',fs)
-PlottingFunc(ax[1],Pol_qui,'Quiet Region',fs)
+PlottingFunc(ax[0],Pol_sax,'Saxophone Subregion',fs,None)
+ax[0].annotate('1pc',xy=(315,1750),color='black',fontsize=fs-2)
+ax[0].plot(scale_bar[0],scale_bar[1],color='black',linewidth=2)
 
-
-
-
-
-#cbar1 = f.colorbar(Pol_sax,ax = ax[0],pad=0.01)
+PlottingFunc(ax[1],np.flipud(np.transpose(np.flipud(Pol_qui))),'Quiet Subregion',fs,True)
 #cbar1.set_label(r"$\log_{10} \Sigma$ [cm$^{-2}$]",fontsize=fs)
 
 #cbar2 = f.colorbar(Pol_qui,ax = ax[1],pad=0.01)
 #cbar2.set_label(r"$\log_{10} \Sigma$ [cm$^{-2}$]",fontsize=fs)
-plt.tight_layout()
+#plt.tight_layout()
 
 
 plt.show()
