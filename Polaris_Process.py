@@ -57,7 +57,15 @@ def ColDensityFITSextract(file,dataAddress):
 
 def MaxPixelWindow(image,windowSize,windowTop,windowBottom):
     """
+    This function creates a sliding window along the vertical axis of the image,
+    finding the coordinates for the maximum value for each windowself.
 
+    INPUTS:
+    image           - the 2D image data, should be a np.array.
+    windowSize      - the size of the window in pixels (along the vertical axis).
+    windowTop       - where the window should start in pixels coordinates (for clouds that don't begin )
+                        at the top boundary.
+    windowBottom    - where the window should terminate in pixel cooridnates.
 
     """
 
@@ -80,42 +88,76 @@ def MaxPixelWindow(image,windowSize,windowTop,windowBottom):
     return np.array([max_pix_x, max_pix_y])
 
 
-def PlottingFunc(ax,data,label,fs,colorbar=None):
+def PlottingFunc(ax,data,label,fs,axisExtent,colorbar=None,refPixel=None):
     """
+    This function plots the saxophone and quite subregions of polaris.
+
+    INPUTS:
+    ax          - the axis from matplotlib.
+    data        - the 2D column density data.
+    label       - the label for the subregiong.
+    fs          - the fontsize for the labels.
+    colobar     - the colorbar (set to true if you want one).
+    refPixel    - the reference pixel (set to true if one exists).
 
     """
 
+    # Axis labels
+    numOfLabels = 10
+    x           = axisExtent[0]
+    y           = axisExtent[1]
+    xStep       = int(data.shape[0]/ (numOfLabels-1))
+    yStep       = int(data.shape[1]/ (numOfLabels-1))
+    xPositions  = np.arange(0,data.shape[0],xStep)
+    yPositions  = np.arange(0,data.shape[1],yStep)
+    xLabels     = x[::xStep]
+    yLabels     = y[::yStep]
+
+
+    # The 2D column density and the labels for the regions.
     img = ax.imshow( np.log10( data ), cmap=plt.cm.plasma,vmin=20.5,vmax=21.5,interpolation='none')
     ax.annotate(r'{}'.format(label),xy=(50-3, 150-3),fontsize=fs,color='black',xycoords='data')
     ax.annotate(r'{}'.format(label),xy=(50, 150),fontsize=fs,color='white',xycoords='data')
-    #ax[0].plot(scale_bar[0],scale_bar[1],color='black',linewidth=2)
+
+    # Turn of axis ticks for now.
     ax.set_xticks([])
     ax.set_yticks([])
 
+    # The global maximum value of the column density.
     Ymax, Xmax = np.where(data == data.max())
 
-    # Black shadow
+    # The label for the maximum column density and the pixel coordinate for the density.
     ax.scatter(Xmax[0]-3, Ymax[0]-3, marker ='o', color='black',s=3)
     ax.annotate(r'$\Sigma_{max}$',xy=(Xmax[0] - 23, Ymax[0] - 23),fontsize=fs+2,
                 color='black',xycoords='data')
-    # White
     ax.scatter(Xmax[0], Ymax[0], marker='o', color='white',s=3)
     ax.annotate(r'$\Sigma_{max}$',xy=(Xmax[0] - 20, Ymax[0] - 20),fontsize=fs+2,
                 color='white',xycoords='data')
 
-
+    # Add a colourbar if the user wants one.
     if colorbar is not None:
         cbar = plt.colorbar(img, ax=ax,pad=0.01)
         cbar.set_label(r"$\log_{10} \Sigma$ [cm$^{-2}$]",fontsize=fs,labelpad=20,rotation=270)
 
+    # Add a reference pixel if the user wants one.
+    if refPixel is not None:
+        ax.scatter(refPixel[0],refPixel[1],color='white',marker='*',s=3)
 
-def CoordFITSExtract(file,dataAddress):
+
+def CoordFITSExtract(file,dataAddress,density):
     """
+    This function extracts the coordiante information from the FITS file.
+
+    file        - the file name.
+    dataAddress - the directory of the FITS files.
+    density     - the 2D column denisty.
 
     """
     data    = fits.open(dataAddress+file)
 
     # some info on coordinates:
+    x_axis          = data[0].header["NAXIS1"]
+    y_axis          = data[0].header["NAXIS2"]
     coord_x_pix     = data[0].header["CRPIX1"]
     coord_y_pix     = data[0].header["CRPIX2"]
     coord_x_offset  = data[0].header["CRVAL1"]
@@ -128,7 +170,20 @@ def CoordFITSExtract(file,dataAddress):
     pix_pc          = distance * 1000.0 * pix/arcsec2rad    # pixels to parsecs
     print 'pixel size in parsecs = ', pix_pc
 
-    return (coord_x_pix, coord_y_pix), (coord_x_offset, coord_y_offset), pix_pc
+    # Create an array for the y axis in offset coordinates
+    if (density.shape[0] == y_axis):
+        print("The y-axis is correct.")
+
+        y_axis = ( coord_y_pix  - np.array(range(0,density.shape[0]-1)) ) * data[0].header["CDELT2"]
+
+    # Create an array for the x axis in the offset coordinates
+    if (density.shape[1] == x_axis):
+        print("The x-axis is correct.")
+
+        x_axis = ( coord_x_pix  - np.array(range(0,density.shape[1]-1)) ) * data[0].header["CDELT1"]
+
+
+    return (coord_x_offset, coord_y_offset), (x_axis, y_axis), pix_pc
 
 
 # Coordinates
@@ -138,49 +193,26 @@ def CoordFITSExtract(file,dataAddress):
 
 # Column Density
 ###########################################################################
+# Saxaphone
+# NAXIS1  = 1567
+# NAXIS2  = 1948
 
-# sensitivity     = 25e-3*1.9e23
-# outline1        = 5e22
-# outline2        = 1e23
+# Quiet
+# NAXIS1  = 2000
+# NAXIS2  = 1366
 
-
-# Polaris_image   = np.flipud(Brickcf[0].data)   # Federrath 2016 preprocessed
-# Brick_image     = Brick[0].data[0,0,:,:]        # additional indexing needed for the first fits file
-#
-# # Column Density Indexes (all non-zero values)
-# nz_index    = np.where(Brickcf_image.ravel() >= 2*sensitivity)  # indexes of densites
-# sigma       = Brickcf_image.ravel()[nz_index];      # column density array cm^-2
-# sigma_mean  = np.mean(sigma)                        # mean column density
-# sigma_std   = np.std(sigma)                         # standard deviation of column density
-
-# Contours
-###########################################################################
-
-#plt.hist(np.log10(sigma),bins=100)
-#plt.axvline(np.log10(sigma_mean), color='r')
-#plt.show()
-
-# countours_cf = measure.find_contours( Brickcf_image, outline1)
-# countours_JB = measure.find_contours( Brickcf_image, outline2)
-
-# Image Processing
-###########################################################################
-
-# mask    = morphology.binary_closing(Brickcf_image >= outline1)
-# mask    = morphology.binary_closing(mask)
-
-
-
-# max_pix = MaxPixelWindow(image=Brickcf_image)
 
 # Working Script
 ###########################################################################
+quietFile   = "herschel_polaris_coldens_18_quiet.fits"
+saxFile     = "herschel_polaris_coldens_18_saxophone.fits"
+fullFile    = "herschel_polaris_coldens_36.fits"
 
-Pol_qui, mean_qui, var_qui                  = ColDensityFITSextract("herschel_polaris_coldens_18_quiet.fits",dataAdd)
-coord_pix_qui, coord_offset_qui, pix_pc_qui = CoordFITSExtract("herschel_polaris_coldens_18_quiet.fits",dataAdd)
+Pol_qui, mean_qui, var_qui              = ColDensityFITSextract(quietFile,dataAdd)
+coord_offset_qui, axis_qui, pix_pc_qui  = CoordFITSExtract(quietFile,dataAdd,Pol_qui)
 
-Pol_sax, mean_sax, var_sax                  = ColDensityFITSextract("herschel_polaris_coldens_18_saxophone.fits",dataAdd)
-coord_pix_sax, coord_offset_sax, pix_pc_sax = CoordFITSExtract("herschel_polaris_coldens_18_saxophone.fits",dataAdd)
+Pol_sax, mean_sax, var_sax              = ColDensityFITSextract(saxFile,dataAdd)
+coord_offset_sax, axis_sax, pix_pc_sax  = CoordFITSExtract(saxFile,dataAdd,Pol_sax)
 
 # Plots
 ###########################################################################
@@ -194,11 +226,11 @@ f, ax = plt.subplots(1,2, figsize=(4, 4), dpi=250, facecolor='w')
 f.subplots_adjust(hspace=0.01,wspace=0)
 fs = 12;
 
-PlottingFunc(ax[0],Pol_sax,'Saxophone Subregion',fs,None)
-ax[0].annotate('1pc',xy=(315,1750),color='black',fontsize=fs-2)
-ax[0].plot(scale_bar[0],scale_bar[1],color='black',linewidth=2)
+PlottingFunc(ax[0],Pol_sax,'Saxophone Subregion',fs,axis_sax)
+ax[0].annotate('1pc',xy=(315,1750),color='white',fontsize=fs-2)
+ax[0].plot(scale_bar[0],scale_bar[1],color='white',linewidth=2)
 
-PlottingFunc(ax[1],np.flipud(np.transpose(np.flipud(Pol_qui))),'Quiet Subregion',fs,True)
+PlottingFunc(ax[1],np.flipud(np.transpose(np.flipud(Pol_qui))),'Quiet Subregion',fs,axis_qui,colorbar=True)
 #cbar1.set_label(r"$\log_{10} \Sigma$ [cm$^{-2}$]",fontsize=fs)
 
 #cbar2 = f.colorbar(Pol_qui,ax = ax[1],pad=0.01)
