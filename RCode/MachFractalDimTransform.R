@@ -54,12 +54,12 @@ nlsFunc2 <- function(x,parms){
      
      # Functional form from Beattie et al. 2019
      
-     beta1     <- parms[1]
-     beta0     <- parms[2]
-     fmax      <- parms[3]
-     fmin      <- parms[4]
+     beta0     <- parms[1]
+     beta1     <- parms[2]
+     fmax      <- 2
+     fmin      <- parms[3]
      
-     f <- (fmax-fmin)*(1-erf(beta1*x+beta0)) / 2 + fmin
+     f <- (fmax-fmin)*(1-erf(beta1*x-beta0)) / 2 + fmin
      
      return(f)
 }
@@ -145,12 +145,12 @@ nlsFunc3_mod <- function(x,parms){
      
      # Define the actual model. Have to hard code the parameters to use the inverse function. 
      
-     beta0 <- -0.2331088
+     beta0 <- 0.2331088
      beta1 <- 1.1382839
      fmax <- 2
      fmin <- 1.5522796
      
-     f <- (fmax-fmin)*(1 - erf(beta1*x+beta0)) / 2 + fmin
+     f <- (fmax-fmin)*(1 - erf(beta1*x-beta0)) / 2 + fmin
      
      return(f)
 }
@@ -160,12 +160,12 @@ nlsFunc3_upper <- function(x){
      
      # The upper 1sigma error
      
-     beta0 <- -0.149476
+     beta0 <- 0.149476
      beta1 <- 1.275321
      fmax <- 2
      fmin <- 1.686239
      
-     f <- (fmax-fmin)*(1 - erf(beta1*x+beta0)) / 2 + fmin
+     f <- (fmax-fmin)*(1 - erf(beta1*x-beta0)) / 2 + fmin
      
      return(f)
 }
@@ -175,12 +175,12 @@ nlsFunc3_lower <- function(x){
      
      # The lower 1sigma error
      
-     beta0 <- -0.2689987
+     beta0 <- 0.2689987
      beta1 <- 1.0910387
      fmax <- 2
      fmin <- 1.4202617
      
-     f <- (fmax-fmin)*(1 - erf(beta1*x+beta0)) / 2 + fmin
+     f <- (fmax-fmin)*(1 - erf(beta1*x-beta0) ) / 2 + fmin
      
      return(f)
 }
@@ -553,8 +553,8 @@ ModelDatFit_Mach         <- ModelDatFit %>% mutate(Mach = sqrt(10^LR)*rmsM4)
 ModelDatNotFit_Mach      <- ModelDatNotFit %>% mutate(Mach = sqrt(10^LengthRel)*rmsM4)
 ModelDatFit_Mach %<>% mutate(`Mach Number` = factor(`Mach Number`, levels=c("Mach 1","Mach 4","Mach 10", "Mach 20","Mach 40","Mach 100")) )
 
-formulaExp2    <- as.formula(FD  ~ ( (fmax-fmin)*(1-VGAM::erf(beta1*log10(Mach)+beta0)) / 2 + fmin ) )
-nls2           <- nls(formulaExp2, start = list(beta0 = -1,beta1 = 1/2,fmin=1),data = ModelDatFit_Mach,weights = std)
+formulaExp2    <- as.formula(FD  ~ ( (fmax-fmin)*(1-VGAM::erf(beta1*log10(Mach)-beta0)) / 2 + fmin ) )
+nls2           <- nls(formulaExp2, start = list(beta0 = 0,beta1 = 1/2,fmin=1),data = ModelDatFit_Mach,weights = std)
 nls2_tidy      <- tidy(nls2) 
 
 MachFractalDimError <- dD_errorFunction(ModelDatFit_Mach$Mach,ModelDatFit_Mach$std,nls2_tidy)
@@ -562,14 +562,14 @@ MachFractalDimError <- dD_errorFunction(ModelDatFit_Mach$Mach,ModelDatFit_Mach$s
 UpperError <- data.frame(Mach = ModelDatFit_Mach$Mach,FD = MachFractalDimError + ModelDatFit_Mach$FD)
 LowerError <- data.frame(Mach = ModelDatFit_Mach$Mach,FD = ModelDatFit_Mach$FD - MachFractalDimError)
 
-nls2_Upper     <- nls(formulaExp2, start = list(beta0 = -1,beta1 = 1/2,fmin=1),data = UpperError)
+nls2_Upper     <- nls(formulaExp2, start = list(beta0 = 0,beta1 = 1/2,fmin=1),data = UpperError)
 Upper_tidy     <- tidy(nls2_Upper) 
 parms_Upper_Mach <- c(Upper_tidy$estimate[1],
                  Upper_tidy$estimate[2],
                  Upper_tidy$estimate[3])
 
 
-nls2_Lower     <- nls(formulaExp2, start = list(beta0 = -1,beta1 = 1/2,fmin=1),data = LowerError)
+nls2_Lower     <- nls(formulaExp2, start = list(beta0 = 0,beta1 = 1/2,fmin=1),data = LowerError)
 Lower_tidy     <- tidy(nls2_Lower) 
 parms_Lower_Mach <- c(Lower_tidy$estimate[1],
                  Lower_tidy$estimate[2],
@@ -586,6 +586,11 @@ parms2 <- c(tidynls2$estimate[1],
            tidynls2$estimate[3])
 
 parms2
+
+nlsFunc2(1.98,parms2)
+
+
+
 
 ggplot(aes(x=log10(Mach),y=FD),data=ModelDatFit_Mach) +
      geom_point(aes(col=`Mach Number`)) +
@@ -751,8 +756,8 @@ ggplot(aes(x=LR,y=FD),data=M) +
                         labels=ExponentLabel) +
      theme(axis.title = element_text(size = 16), 
            axis.text = element_text(size = 8), 
-           axis.text.x = element_text(size = 12), 
-           axis.text.y = element_text(size = 12), 
+           axis.text.x = element_text(size = 16), 
+           axis.text.y = element_text(size = 16), 
            plot.title = element_text(size = 15),
            strip.text.x = element_text(size = 15,face="bold")) + 
      theme(legend.position = 0) 
@@ -814,13 +819,13 @@ ggplot(aes(x=log10(Mach),y=FD),data=ModelDatFit_Mach) +
 
 # Quiet region
 quiet          <- 1.76
-quietUpper     <- 1.81
-quietLower     <- 1.71
+#quietUpper     <- 1.81
+#quietLower     <- 1.71
 
 # Saxophone region
-sax       <- 1.60
-saxUpper  <- 1.64
-saxLower  <- 1.56
+sax       <- 1.6
+#saxUpper  <- 1.64
+#saxLower  <- 1.56
 
 # Quiet Mach and Fractal dimension data     
 i_quiet   <- which(round(InverseModel$FD,2)==quiet) %>% median() %>% round()
@@ -846,12 +851,12 @@ sax_dat %>% mutate(Mach10 = 10^Mach)
 
 dat<-data.frame(FD=c(1.55,2))
 
+Estimates    %<>% mutate(`Polaris Subregion` = factor(`Polaris Subregion`, levels=c("Saxophone","Quiet")) )
+
 ggplot() +
      #geom_ribbon(aes(x=FD,ymin=log10(7-7*0.4),ymax=log10(7+7*0.4)),data=dat,fill = "red",alpha=0.2) +
      #geom_ribbon(aes(x=FD,ymin=log10(3-3*0.4),ymax=log10(3+3*0.4)),data=dat,fill = "purple",alpha=0.2) +
      geom_line(aes(y=Mach,x=FD),data=InverseModel,size=1.1) +
-     #geom_line(aes(x=Mach,y=FD),data=InverseLow,size=0.5,linetype=2) +
-     #geom_line(aes(x=Mach,y=FD),data=InverseHigh,size=0.5,linetype=2) +
      geom_line(aes(y=Mach,x=FD),data=errSax,size=8,col="blue",alpha=0.2) +
      geom_line(aes(y=Mach,x=FD),data=errQuiet,size=8,col="blue",alpha=0.2) +
      geom_point(aes(y=Mach,x=FD,shape=`Polaris Subregion`),data=Estimates,size=4,col='red') +
